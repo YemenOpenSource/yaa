@@ -1,5 +1,5 @@
 # yaa
-yaa - yaml search for humans 
+Yaa - YAML Search for Humans
 
 
 yaa is a tool designed to search the content of open source projects that use YAML files as their primary file structure. It is primarily used for searching inside detection content projects but it can be used with any YAML-based project. SigmaHQ Project has approximately 2700 rules, and Splunk content library has approximately 1400 rules. Similarly, Nuclei templates and Sentinel detections, they contain a significant number of rules. Searching within the content of these files can be challenging, especially if you want a query language to extract specific search criteria. yaa provides a straightforward method by using a query language to search for specific content within the YAML files of these projects. 
@@ -8,8 +8,8 @@ yaa is a tool designed to search the content of open source projects that use YA
 ## Query Language 
 The power of yaa search comes from its query language, which depends on full-text search. Search can be as simple as writing a few keywords to search for any matches or to search inside a specific yaml property, or both. 
 
-- +keywords means the word must appear (**AND** operation)
-- -keywords means the keyword must not appears in the search result (**Not** operation)
+- +keywords means the word must appear (**AND** operation). When using multiple keywords, all specified keywords must appear in the search results.
+- -keywords means the keyword must not appear in the search result (**Not** operation). When using multiple keywords, none of the specified keywords should appear in the search results.
 
 
 ### Full Text Search
@@ -41,7 +41,7 @@ Yaa can index nested properties and make them searchable by specifying the neste
 
 ### Export Matches
 
-Files matching the search criteria can be exported to a differnet directory
+Files matching the search criteria can be exported to a different directory
 
  ![image](https://github.com/alwashali/yaa/assets/22593441/ca5f6433-0b24-4ad7-b495-26bd67ff8354)
 
@@ -70,7 +70,7 @@ yaa is built for searching inside detection rule projects such as SigmaHQ, howev
 % ./yaa
 
 NAME:
-   Yaa - Yaml Searach for Humans
+   Yaa - Yaml Search for Humans
 
 USAGE:
    Yaa [global options] command [command options] [arguments...]

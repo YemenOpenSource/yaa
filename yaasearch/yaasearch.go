@@ -1,4 +1,4 @@
-package yamlsearch
+package yaasearch
 
 import (
 	"fmt"
@@ -18,9 +18,7 @@ func Index(dataDir string) error {
 
 	// Open or create a new index
 	index, err := bleve.Open(indexDir)
-
 	if err == bleve.ErrorIndexPathDoesNotExist {
-
 		mapping := bleve.NewIndexMapping()
 		index, err = bleve.New(indexDir, mapping)
 		if err != nil {
@@ -34,21 +32,17 @@ func Index(dataDir string) error {
 
 	stopChan := make(chan struct{})
 	go showIndicatorsDots(stopChan)
-
 	// Walk through the YAML files and index them
 	err = filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
 		if !info.IsDir() && (strings.HasSuffix(strings.ToLower(path), ".yml") || strings.HasSuffix(strings.ToLower(path), ".yaml")) {
-
 			data, err := os.ReadFile(path)
 			if err != nil {
 				fmt.Printf("Error reading file %s: %v\n", path, err)
 				return nil
 			}
-
 			// Parse the YAML data
 			var yamlData map[string]interface{}
 
@@ -57,8 +51,10 @@ func Index(dataDir string) error {
 				return nil
 			}
 
-			index.Index(path, yamlData)
-
+			if err := index.Index(path, yamlData); err != nil {
+				fmt.Printf("Error indexing file %s: %v\n", path, err)
+				return err
+			}
 		}
 		return nil
 	})
@@ -72,14 +68,11 @@ func Index(dataDir string) error {
 
 	index.Close()
 	return nil
-
 }
 
 func Search(query []string, limit int) *bleve.SearchResult {
 	// Search for a term within the index
-
 	if indexExists(indexDir) {
-
 		index, err := bleve.Open(indexDir)
 		if err != nil {
 			fmt.Printf("Error searching index: %v\n", err)
@@ -88,11 +81,10 @@ func Search(query []string, limit int) *bleve.SearchResult {
 		defer index.Close()
 
 		queryStr := strings.Join(query, " ")
-		query := bleve.NewQueryStringQuery(queryStr)
-		search := bleve.NewSearchRequest(query)
+		q := bleve.NewQueryStringQuery(queryStr)
+		search := bleve.NewSearchRequest(q)
 		search.Size = limit
 		search.Highlight = bleve.NewHighlightWithStyle(ansi.Name)
-
 		result, err := index.Search(search)
 
 		if err != nil {
@@ -103,11 +95,8 @@ func Search(query []string, limit int) *bleve.SearchResult {
 		return result
 	} else {
 		fmt.Println("Index was not found")
-		os.Exit(1)
+		return nil
 	}
-
-	return nil
-
 }
 
 func indexExists(path string) bool {

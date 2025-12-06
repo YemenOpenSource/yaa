@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	yaasearch "yaa/yaasearch"
@@ -19,7 +20,7 @@ func main() {
 			{
 				Name:      "search",
 				Aliases:   []string{"s"},
-				UsageText: "Yaa search [options] SearchQuery",
+				UsageText: "Yaa search [options] <query...>",
 				Flags: []cli.Flag{
 					&cli.IntFlag{
 						Name:    "limit",
@@ -32,6 +33,16 @@ func main() {
 						Aliases: []string{"e"},
 						Usage:   "Path to save yaml files",
 					},
+					&cli.BoolFlag{
+						Name:    "force",
+						Aliases: []string{"f"},
+						Usage:   "Overwrite existing files when exporting",
+					},
+					&cli.BoolFlag{
+						Name:    "debug",
+						Aliases: []string{"d"},
+						Usage:   "Enable verbose debug logging",
+					},
 				},
 
 				Action: searchAction,
@@ -39,19 +50,33 @@ func main() {
 			{
 				Name:    "index",
 				Aliases: []string{"i"},
-				Usage:   "Path to yaml folder",
-				Action:  indexAction,
+				Usage:   "Yaa index [options] <folder>",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "debug",
+						Aliases: []string{"d"},
+						Usage:   "Enable verbose debug logging",
+					},
+				},
+				Action: indexAction,
 			},
 		},
 	}
 
+	// configure default logger
+	log.SetFlags(log.LstdFlags)
 	err := app.Run(os.Args)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	}
 }
 
 func searchAction(c *cli.Context) error {
+	// Set debug level for search run
+	yaasearch.Debug = c.Bool("debug")
+	if yaasearch.Debug {
+		log.Println("Debug logging enabled")
+	}
 	query := c.Args().Slice()
 	if len(query) == 0 {
 
@@ -60,9 +85,13 @@ func searchAction(c *cli.Context) error {
 
 	limit := c.Int("limit")
 	results := yaasearch.Search(query, limit)
+	if results == nil {
+		log.Println("Search failed or index missing")
+		return cli.Exit("Search failed or index missing", 1)
+	}
 
-	// assuming results.Hits is a slice; if not, adjust accordingly
-	if len(results.Hits) > 0 {
+	// Bleve's Hits is a collection; use Len()
+	if results.Hits.Len() > 0 {
 		if c.IsSet("export") {
 			dest_path := c.String("export")
 			// Ensure export directory exists and is a directory
@@ -77,16 +106,16 @@ func searchAction(c *cli.Context) error {
 			force := c.Bool("force")
 			for _, hit := range results.Hits {
 				if err := exportFile(hit.ID, dest_path, force); err != nil {
-					fmt.Println("Export error:", err)
+					log.Println("Export error:", err)
 				}
 			}
-			fmt.Println(len(results.Hits), "files exported to", dest_path)
+			log.Println(len(results.Hits), "files exported to", dest_path)
 			return nil
 		}
-		fmt.Println(results)
+		log.Println(results)
 	} else {
 
-		fmt.Println("No Match Found")
+		log.Println("No Match Found")
 	}
 	return nil
 }
@@ -96,6 +125,10 @@ func indexAction(c *cli.Context) error {
 	path := c.Args().First()
 	if path == "" {
 		return cli.Exit("Please provide a folder to index", 1)
+	}
+	yaasearch.Debug = c.Bool("debug")
+	if yaasearch.Debug {
+		log.Println("Debug logging enabled")
 	}
 	yaasearch.Index(path)
 	return nil

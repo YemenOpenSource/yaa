@@ -2,6 +2,7 @@ package yaasearch
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,19 @@ import (
 
 var indexDir = "yaml_index"
 
+// Debug controls verbose logging
+var Debug bool
+
+func info(v ...any) {
+	log.Println(v...)
+}
+
+func debug(v ...any) {
+	if Debug {
+		log.Println(v...)
+	}
+}
+
 func Index(dataDir string) error {
 
 	// Open or create a new index
@@ -22,49 +36,50 @@ func Index(dataDir string) error {
 		mapping := bleve.NewIndexMapping()
 		index, err = bleve.New(indexDir, mapping)
 		if err != nil {
-			fmt.Printf("Error creating index: %v\n", err)
+			info("Error creating index:", err)
 			return err
 		}
 	} else if err != nil {
-		fmt.Printf("Error opening index: %v\n", err)
+		info("Error opening index:", err)
 		return err
 	}
 
 	stopChan := make(chan struct{})
 	go showIndicatorsDots(stopChan)
 	// Walk through the YAML files and index them
-	err = filepath.Walk(dataDir, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(dataDir, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && (strings.HasSuffix(strings.ToLower(path), ".yml") || strings.HasSuffix(strings.ToLower(path), ".yaml")) {
+		if !fi.IsDir() && (strings.HasSuffix(strings.ToLower(path), ".yml") || strings.HasSuffix(strings.ToLower(path), ".yaml")) {
 			data, err := os.ReadFile(path)
 			if err != nil {
-				fmt.Printf("Error reading file %s: %v\n", path, err)
+				info("Error reading file", path, ":", err)
 				return nil
 			}
 			// Parse the YAML data
 			var yamlData map[string]interface{}
 
 			if err := yaml.Unmarshal(data, &yamlData); err != nil {
-				fmt.Printf("Error parsing YAML file %s: %v\n", path, err)
+				info("Error parsing YAML file", path, ":", err)
 				return nil
 			}
 
 			if err := index.Index(path, yamlData); err != nil {
-				fmt.Printf("Error indexing file %s: %v\n", path, err)
+				info("Error indexing file", path, ":", err)
 				return err
 			}
+			debug("Indexed", path)
 		}
 		return nil
 	})
 
 	if err != nil {
-		fmt.Printf("Error walking the directory: %v\n", err)
+		info("Error walking the directory:", err)
 		return err
 	}
 	close(stopChan)
-	println("Done!")
+	info("Indexing Done!")
 
 	index.Close()
 	return nil
@@ -75,7 +90,7 @@ func Search(query []string, limit int) *bleve.SearchResult {
 	if indexExists(indexDir) {
 		index, err := bleve.Open(indexDir)
 		if err != nil {
-			fmt.Printf("Error searching index: %v\n", err)
+			info("Error searching index:", err)
 			return nil
 		}
 		defer index.Close()
@@ -88,13 +103,14 @@ func Search(query []string, limit int) *bleve.SearchResult {
 		result, err := index.Search(search)
 
 		if err != nil {
-			fmt.Printf("Error searching index: %v\n", err)
+			info("Error searching index:", err)
 			return nil
 		}
 
+		debug("Search query:", queryStr, "hits:", result.Hits.Len())
 		return result
 	} else {
-		fmt.Println("Index was not found")
+		info("Index was not found")
 		return nil
 	}
 }
